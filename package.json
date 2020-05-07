@@ -1,0 +1,24 @@
+{
+  "name": "ednative",
+  "version": "1.0.0",
+  "description": "Parse EDN into native data",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adamniederer/ednative.git"
+  },
+  "keywords": [
+    "edn",
+    "parser"
+  ],
+  "author": "Adam Niederer",
+  "license": "MPL-2.0",
+  "bugs": {
+    "url": "https://github.com/adamniederer/ednative/issues"
+  },
+  "homepage": "https://github.com/adamniederer/ednative"
+}

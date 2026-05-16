@@ -9,9 +9,10 @@ function parseNumber(edn, cursor) {
       if(chr === 78) { // N
         return [i + 1, BigInt(edn.substring(cursor, i))]
       }
-      return [i, parseFloat(edn.substring(cursor, i))]
+      return [i, parseFloat(edn.substring(cursor, i)) + 0]
     }
   }
+  return [edn.length, parseFloat(edn.substring(cursor, edn.length)) + 0]
 }
 
 function parseSymbolOrNumberOrRatio(edn, cursor) {
@@ -28,43 +29,31 @@ function parseNumberOrRatio(edn, cursor) {
   const [cur, num] = parseNumber(edn, cursor)
   if(edn.charAt(cur) === "/") {
     const [cur2, denom] = parseNumber(edn, cur + 1)
-    return [cur2, num / denom]
+    return [cur2, Number(num) / Number(denom)]
   } else {
     return [cur, num]
   }
 }
 
 function parseString(edn, cursor) {
-  let escaped = false;
+  let ret = ""
   for(let i = cursor + 1; i < edn.length; i += 1) {
-    switch(edn.charAt(i)) {
-      case "\\": { escaped = !escaped; break }
-      case "n":
-      case "t":
-      case "r": {
-        if(escaped) {
-          escaped = false
-        }
-        break
-      }
-      case "\"": {
-        if(escaped) {
-          escaped = false
-          break
-        } else {
-          return [
-            i + 1,
-            edn.substring(cursor + 1, i)
-              .replace("\\n", "\n")
-              .replace("\\t", "\t")
-              .replace("\\r", "\r")
-              .replace("\\", "\\")
-              .replace("\"", "\"")
-          ]
-        }
-      }
+    const chr = edn.charAt(i)
+    if(chr === "\\") {
+      const next = edn.charAt(i + 1)
+      if(next === "n") { ret += "\n"; i += 1 }
+      else if(next === "t") { ret += "\t"; i += 1 }
+      else if(next === "r") { ret += "\r"; i += 1 }
+      else if(next === "\\") { ret += "\\"; i += 1 }
+      else if(next === "\"") { ret += "\""; i += 1 }
+      else { ret += "\\" + next; i += 1 }
+    } else if(chr === "\"") {
+      return [i + 1, ret]
+    } else {
+      ret += chr
     }
   }
+  throw `Unexpected end of input while parsing string starting at ${cursor}`
 }
 
 function parseSymbolOrBuiltin(edn, cursor) {
@@ -73,7 +62,7 @@ function parseSymbolOrBuiltin(edn, cursor) {
     case "true": return [cur, true]
     case "false": return [cur, false]
     case "nil": return [cur, null]
-    default: return [cur, Symbol(val)]
+    default: return [cur, Symbol.for(val)]
   }
 }
 
@@ -96,19 +85,12 @@ function parseSymbol(edn, cursor) {
 }
 
 function parseCharacter(edn, cursor) {
-  const chr = edn.charAt(cursor + 1)
-  const next = edn.charAt(cursor + 2)
-
-  if(next === "e" || next === "p" || next === "a") {
-    switch(chr) {
-      case 'n': return [cursor + 8, "\n"]
-      case 'r': return [cursor + 7, "\r"]
-      case 's': return [cursor + 6, " "]
-      default: return [cursor + 4, "\t"] // What error handling?
-    }
-  }
-
-  return [cursor + 2, edn.substring(cursor + 1, cursor + 2)]
+  const rest = edn.substring(cursor + 1)
+  if(rest.startsWith("newline")) return [cursor + 8, "\n"]
+  if(rest.startsWith("return")) return [cursor + 7, "\r"]
+  if(rest.startsWith("space")) return [cursor + 6, " "]
+  if(rest.startsWith("tab")) return [cursor + 4, "\t"]
+  return [cursor + 2, edn.charAt(cursor + 1)]
 }
 
 function parseSet(edn, cursor) {
@@ -121,6 +103,7 @@ function parseSet(edn, cursor) {
     i = cur
     ret.add(val)
   }
+  throw `Unexpected end of input, expected }`
 }
 
 function parseVec(edn, cursor, end = "]") {
@@ -136,6 +119,7 @@ function parseVec(edn, cursor, end = "]") {
       ret.push(val)
     }
   }
+  throw `Unexpected end of input, expected ${end}`
 }
 
 function parseMap(edn, cursor) {
@@ -149,6 +133,9 @@ function parseMap(edn, cursor) {
     while(key === undefined) {
       [first, key] = parseAny(edn, first)
       if(edn.charAt(first) === "}") {
+        if(key !== undefined) {
+          throw "odd number of map keys at " + first
+        }
         return [first + 1, ret]
       }
     }
@@ -180,7 +167,7 @@ function parseHash(edn, cursor) {
     const [cur, fn] = parseSymbol(edn, cursor + 1)
     if(fn === "inst" && edn.charAt(cur + 1) === "\"") {
       const [cur2, date] = parseString(edn, cur + 1)
-      return [cur2, Date.parseAny(date)]
+      return [cur2, Date.parse(date)]
     } else if(fn === "uuid" && edn.charAt(cur + 1) === "\"") {
       return parseString(edn, cur + 1)
     } else {
@@ -193,9 +180,10 @@ function parseHash(edn, cursor) {
 function parseComment(edn, cursor) {
   for(let i = cursor + 1; i < edn.length; i += 1) {
     if(edn.charAt(i) === "\n" || edn.charAt(i) === "\r") {
-      return parseAny(edn, cursor + 1)
+      return parseAny(edn, i + 1)
     }
   }
+  return [edn.length, undefined]
 }
 
 function parseAny(edn, cursor = 0) {

@@ -5,7 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node test/index.js"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "repository": {
     "type": "git",
@@ -20,5 +21,8 @@
   "bugs": {
     "url": "https://github.com/adamniederer/ednative/issues"
   },
-  "homepage": "https://github.com/adamniederer/ednative"
+  "homepage": "https://github.com/adamniederer/ednative",
+  "devDependencies": {
+    "vitest": "^4.1.6"
+  }
 }
